@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Sales Analytics Dashboard</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- No external dependencies: charts below are drawn with hand-rolled inline SVG so this file works fully offline. -->
+<style>
+:root{
+  --navy:#0F2438;
+  --navy-2:#16324F;
+  --bg:#F5F7F8;
+  --card:#FFFFFF;
+  --ink:#12202E;
+  --ink-soft:#5C6B78;
+  --line:#E3E8EB;
+  --teal:#1C8C6E;
+  --amber:#D98C2B;
+  --coral:#C6553F;
+  --blue:#2E6FA8;
+}
+*{box-sizing:border-box;}
+body{
+  margin:0;
+  font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,Arial,sans-serif;
+  background:var(--bg);
+  color:var(--ink);
+}
+header{
+  background:linear-gradient(120deg,var(--navy) 0%,var(--navy-2) 100%);
+  color:#fff;
+  padding:22px 28px 0 28px;
+}
+header .top{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  flex-wrap:wrap;
+  gap:12px;
+}
+header h1{
+  margin:0;
+  font-size:1.5rem;
+  font-weight:600;
+  letter-spacing:.2px;
+}
+header p.sub{
+  margin:4px 0 18px 0;
+  color:#B9C7D3;
+  font-size:.85rem;
+}
+nav.tabs{
+  display:flex;
+  gap:4px;
+  overflow-x:auto;
+}
+nav.tabs button{
+  background:transparent;
+  border:none;
+  color:#AEBFCC;
+  padding:10px 16px;
+  font-size:.85rem;
+  cursor:pointer;
+  border-bottom:3px solid transparent;
+  white-space:nowrap;
+}
+nav.tabs button.active{
+  color:#fff;
+  border-bottom:3px solid var(--teal);
+  font-weight:600;
+}
+main{
+  max-width:1180px;
+  margin:0 auto;
+  padding:22px 20px 60px 20px;
+}
+.filters{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  margin-bottom:18px;
+}
+.filters select{
+  padding:8px 12px;
+  border-radius:6px;
+  border:1px solid var(--line);
+  background:#fff;
+  font-size:.82rem;
+  color:var(--ink);
+}
+.page{display:none;}
+.page.active{display:block;}
+.kpi-row{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+  gap:12px;
+  margin-bottom:18px;
+}
+.kpi{
+  background:var(--card);
+  border:1px solid var(--line);
+  border-radius:8px;
+  padding:14px 16px;
+}
+.kpi .label{font-size:.72rem;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.5px;}
+.kpi .value{font-size:1.5rem;font-weight:700;margin-top:4px;font-variant-numeric:tabular-nums;}
+.kpi .value.teal{color:var(--teal);}
+.kpi .value.amber{color:var(--amber);}
+.kpi .value.blue{color:var(--blue);}
+.grid2{
+  display:grid;
+  grid-template-columns:1.3fr 1fr;
+  gap:14px;
+}
+@media (max-width:760px){.grid2{grid-template-columns:1fr;}}
+.card{
+  background:var(--card);
+  border:1px solid var(--line);
+  border-radius:8px;
+  padding:16px;
+  margin-bottom:14px;
+}
+.card h3{margin:0 0 12px 0;font-size:.9rem;color:var(--ink);}
+table{width:100%;border-collapse:collapse;font-size:.82rem;}
+th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--line);}
+th{color:var(--ink-soft);font-weight:600;font-size:.72rem;text-transform:uppercase;letter-spacing:.4px;}
+tr:hover td{background:#FAFBFC;}
+.badge{
+  display:inline-block;padding:2px 8px;border-radius:10px;font-size:.7rem;font-weight:600;
+}
+.badge.ok{background:#E3F3ED;color:var(--teal);}
+.badge.low{background:#FBEAE7;color:var(--coral);}
+canvas{max-height:280px;}
+footer{
+  text-align:center;color:var(--ink-soft);font-size:.75rem;padding:20px;
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="top">
+    <div>
+      <h1>Sales Analytics Dashboard</h1>
+      <p class="sub">FY 2024 · Sales, Customer &amp; Inventory Performance</p>
+    </div>
+  </div>
+  <nav class="tabs">
+    <button class="active" data-page="exec">Executive Dashboard</button>
+    <button data-page="sales">Sales Analysis</button>
+    <button data-page="customer">Customer Insights</button>
+    <button data-page="inventory">Inventory</button>
+  </nav>
+</header>
+
+<main>
+  <div class="filters">
+    <select id="fRegion"><option value="">All Regions</option></select>
+    <select id="fCategory"><option value="">All Categories</option></select>
+  </div>
+
+  <!-- PAGE 1: EXECUTIVE -->
+  <section class="page active" id="page-exec">
+    <div class="kpi-row">
+      <div class="kpi"><div class="label">Total Revenue</div><div class="value teal" id="kRevenue">-</div></div>
+      <div class="kpi"><div class="label">Total Profit</div><div class="value blue" id="kProfit">-</div></div>
+      <div class="kpi"><div class="label">Profit Margin %</div><div class="value amber" id="kMargin">-</div></div>
+      <div class="kpi"><div class="label">Total Orders</div><div class="value" id="kOrders">-</div></div>
+      <div class="kpi"><div class="label">Avg Order Value</div><div class="value" id="kAOV">-</div></div>
+    </div>
+    <div class="grid2">
+      <div class="card">
+        <h3>Sales Trend (by month)</h3>
+        <div id="chartTrend"></div>
+      </div>
+      <div class="card">
+        <h3>Category Performance</h3>
+        <div id="chartCategory"></div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>Revenue vs Target by Category</h3>
+      <div id="chartTarget"></div>
+    </div>
+  </section>
+
+  <!-- PAGE 2: SALES ANALYSIS -->
+  <section class="page" id="page-sales">
+    <div class="card">
+      <h3>Category → Product Matrix</h3>
+      <table id="tblMatrix"><thead><tr><th>Category</th><th>Product</th><th>Qty Sold</th><th>Revenue</th><th>Profit</th></tr></thead><tbody></tbody></table>
+    </div>
+    <div class="card">
+      <h3>Top Products by Revenue</h3>
+      <div id="chartTopProducts"></div>
+    </div>
+  </section>
+
+  <!-- PAGE 3: CUSTOMER INSIGHTS -->
+  <section class="page" id="page-customer">
+    <div class="grid2">
+      <div class="card">
+        <h3>Revenue by Region</h3>
+        <div id="chartRegion"></div>
+      </div>
+      <div class="card">
+        <h3>Customers</h3>
+        <table id="tblCustomers"><thead><tr><th>Customer</th><th>Region</th><th>Orders</th><th>Revenue</th></tr></thead><tbody></tbody></table>
+      </div>
+    </div>
+  </section>
+
+  <!-- PAGE 4: INVENTORY -->
+  <section class="page" id="page-inventory">
+    <div class="card">
+      <h3>Stock vs Sales</h3>
+      <div id="chartStock"></div>
+    </div>
+    <div class="card">
+      <h3>Stock Status</h3>
+      <table id="tblStock"><thead><tr><th>Product</th><th>Stock Qty</th><th>Sold Qty</th><th>Remaining</th><th>Status</th></tr></thead><tbody></tbody></table>
+    </div>
+  </section>
+
+  <footer>Built from Sales_Transactions, Customers, Products, Inventory &amp; Targets · Data cleaned via ETL script</footer>
+</main>
+
+<script>
+let DATA=null;
+const PALETTE=['#1C8C6E','#2E6FA8','#D98C2B','#C6553F','#7B5EA7','#5C6B78'];
+
+// ---- tiny dependency-free SVG chart helpers ----
+function svgWrap(w,h,inner){ return `<svg viewBox="0 0 ${w} ${h}" width="100%" style="max-height:280px">${inner}</svg>`; }
+
+function barChart(el,labels,series,opts={}){ // series: [{name,data,color}]
+  const w=560,h=260,padL=44,padR=14,padT=16,padB=36;
+  const innerW=w-padL-padR, innerH=h-padT-padB;
+  const allVals=series.flatMap(s=>s.data);
+  const maxV=Math.max(1,...allVals), minV=Math.min(0,...allVals);
+  const range=maxV-minV || 1;
+  const groupW=innerW/labels.length;
+  const barGap=6, barW=(groupW-barGap*2)/series.length;
+  const y0 = padT + innerH*(maxV/range);
+  let bars='';
+  labels.forEach((lab,i)=>{
+    series.forEach((s,si)=>{
+      const v=s.data[i];
+      const barH = Math.abs(v)/range*innerH;
+      const x = padL + i*groupW + barGap/2 + si*barW;
+      const y = v>=0 ? y0-barH : y0;
+      bars += `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${(barW-2).toFixed(1)}" height="${Math.max(barH,1).toFixed(1)}" fill="${s.color}" rx="2"></rect>`;
+    });
+    bars += `<text x="${(padL+i*groupW+groupW/2).toFixed(1)}" y="${h-10}" font-size="10" fill="#5C6B78" text-anchor="middle">${lab}</text>`;
+  });
+  bars += `<line x1="${padL}" y1="${y0.toFixed(1)}" x2="${w-padR}" y2="${y0.toFixed(1)}" stroke="#D8DEE2" stroke-width="1"/>`;
+  bars += `<text x="6" y="${padT+10}" font-size="10" fill="#5C6B78">${Math.round(maxV).toLocaleString()}</text>`;
+  bars += `<text x="6" y="${y0.toFixed(1)}" font-size="10" fill="#5C6B78">0</text>`;
+  let legend='';
+  if(series.length>1){
+    legend = '<div style="display:flex;gap:14px;margin-top:6px;font-size:.75rem;color:#5C6B78;flex-wrap:wrap;">'+
+      series.map(s=>`<span><span style="display:inline-block;width:10px;height:10px;background:${s.color};border-radius:2px;margin-right:5px;"></span>${s.name}</span>`).join('')+'</div>';
+  }
+  el.innerHTML = svgWrap(w,h,bars) + legend;
+}
+
+function hBarChart(el,labels,data,color){
+  const w=560, rowH=28, padL=110, padR=60, padT=8;
+  const h=padT+labels.length*rowH+8;
+  const innerW=w-padL-padR;
+  const maxV=Math.max(1,...data);
+  let rows='';
+  labels.forEach((lab,i)=>{
+    const y=padT+i*rowH;
+    const bw=data[i]/maxV*innerW;
+    rows += `<text x="${padL-8}" y="${y+rowH/2+4}" font-size="11" fill="#12202E" text-anchor="end">${lab}</text>`;
+    rows += `<rect x="${padL}" y="${y+4}" width="${Math.max(bw,2).toFixed(1)}" height="${rowH-10}" fill="${color}" rx="3"></rect>`;
+    rows += `<text x="${(padL+bw+6).toFixed(1)}" y="${y+rowH/2+4}" font-size="11" fill="#5C6B78">${Math.round(data[i]).toLocaleString()}</text>`;
+  });
+  el.innerHTML = svgWrap(w,h,rows);
+}
+
+function lineChart(el,labels,data,color){
+  const w=560,h=260,padL=44,padR=14,padT=16,padB=30;
+  const innerW=w-padL-padR, innerH=h-padT-padB;
+  const maxV=Math.max(1,...data), minV=Math.min(0,...data);
+  const range=(maxV-minV)||1;
+  const stepX = labels.length>1 ? innerW/(labels.length-1) : 0;
+  const pts = data.map((v,i)=>[padL+i*stepX, padT+innerH-( (v-minV)/range*innerH )]);
+  const path = pts.map((p,i)=> (i===0?'M':'L')+p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' ');
+  const area = path + ` L${pts[pts.length-1][0].toFixed(1)} ${padT+innerH} L${pts[0][0].toFixed(1)} ${padT+innerH} Z`;
+  let dots = pts.map(p=>`<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="3.5" fill="${color}"></circle>`).join('');
+  let xlabels = labels.map((lab,i)=>`<text x="${pts[i][0].toFixed(1)}" y="${h-8}" font-size="10" fill="#5C6B78" text-anchor="middle">${lab}</text>`).join('');
+  const svg = `<path d="${area}" fill="${color}" opacity="0.12"></path><path d="${path}" fill="none" stroke="${color}" stroke-width="2.5"></path>${dots}${xlabels}
+    <line x1="${padL}" y1="${padT+innerH}" x2="${w-padR}" y2="${padT+innerH}" stroke="#D8DEE2"/>`;
+  el.innerHTML = svgWrap(w,h,svg);
+}
+
+function donutChart(el,labels,data,colors){
+  const w=280,h=260,cx=110,cy=124,r=90,ir=52;
+  const total=data.reduce((a,b)=>a+b,0)||1;
+  let angle=-Math.PI/2, paths='';
+  const pts=(a,rad)=>[cx+rad*Math.cos(a), cy+rad*Math.sin(a)];
+  data.forEach((v,i)=>{
+    const frac=v/total, a1=angle, a2=angle+frac*2*Math.PI;
+    const [x1,y1]=pts(a1,r), [x2,y2]=pts(a2,r);
+    const [x3,y3]=pts(a2,ir), [x4,y4]=pts(a1,ir);
+    const large = (a2-a1)>Math.PI ? 1:0;
+    paths += `<path d="M${x1.toFixed(1)} ${y1.toFixed(1)} A${r} ${r} 0 ${large} 1 ${x2.toFixed(1)} ${y2.toFixed(1)} L${x3.toFixed(1)} ${y3.toFixed(1)} A${ir} ${ir} 0 ${large} 0 ${x4.toFixed(1)} ${y4.toFixed(1)} Z" fill="${colors[i%colors.length]}"></path>`;
+    angle=a2;
+  });
+  const legend = '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:8px;font-size:.75rem;color:#5C6B78;">'+
+    labels.map((l,i)=>`<span><span style="display:inline-block;width:10px;height:10px;background:${colors[i%colors.length]};border-radius:2px;margin-right:5px;"></span>${l}</span>`).join('')+'</div>';
+  el.innerHTML = `<div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;">${svgWrap(w,h,paths)}</div>` + legend;
+}
+
+DATA = {
+  "sales": [
+    {
+      "OrderID": 1001,
+      "OrderDate": "2024-01-05",
+      "CustomerID": "C001",
+      "ProductID": "P101",
+      "Quantity": 2,
+      "UnitPrice": 500,
+      "Discount": 0.1,
+      "Cost": 300,
+      "IsReturn": false,
+      "SalesAmount": 900,
+      "Profit": 400,
+      "ProductName": "Laptop A",
+      "Category": "Electronics",
+      "SubCategory": "Laptops",
+      "CustomerName": "Rahul Sharma",
+      "Region": "North",
+      "MonthLabel": "Jan-2024"
+    },
+    {
+      "OrderID": 1002,
+      "OrderDate": "2024-01-07",
+      "CustomerID": "C002",
+      "ProductID": "P102",
+      "Quantity": 1,
+      "UnitPrice": 1200,
+      "Discount": 0.0,
+      "Cost": 800,
+      "IsReturn": false,
+      "SalesAmount": 1200,
+      "Profit": 400,
+      "ProductName": "Phone X",
+      "Category": "Electronics",
+      "SubCategory": "Mobiles",
+      "CustomerName": "Anita Verma",
+      "Region": "West",
+      "MonthLabel": "Jan-2024"
+    },
+    {
+      "OrderID": 1003,
+      "OrderDate": "2024-02-05",
+      "CustomerID": "C003",
+      "ProductID": "P103",
+      "Quantity": 5,
+      "UnitPrice": 200,
+      "Discount": 0.05,
+      "Cost": 120,
+      "IsReturn": false,
+      "SalesAmount": 950,
+      "Profit": 400,
+      "ProductName": "Chair Pro",
+      "Category": "Furniture",
+      "SubCategory": "Chairs",
+      "CustomerName": "John Doe",
+      "Region": "Unknown",
+      "MonthLabel": "Feb-2024"
+    },
+    {
+      "OrderID": 1004,
+      "OrderDate": "2024-02-10",
+      "CustomerID": "C001",
+      "ProductID": "P104",
+      "Quantity": 3,
+      "UnitPrice": 150,
+      "Discount": 0.2,
+      "Cost": 90,
+      "IsReturn": false,
+      "SalesAmount": 360,
+      "Profit": 180,
+      "ProductName": "Desk Basic",
+      "Category": "Furniture",
+      "SubCategory": "Tables",
+      "CustomerName": "Rahul Sharma",
+      "Region": "North",
+      "MonthLabel": "Feb-2024"
+    },
+    {
+      "OrderID": 1005,
+      "OrderDate": "2024-02-12",
+      "CustomerID": "C004",
+      "ProductID": "P101",
+      "Quantity": 1,
+      "UnitPrice": 500,
+      "Discount": 0.0,
+      "Cost": 300,
+      "IsReturn": false,
+      "SalesAmount": 500,
+      "Profit": 200,
+      "ProductName": "Laptop A",
+      "Category": "Electronics",
+      "SubCategory": "Laptops",
+      "CustomerName": "Priya Singh",
+      "Region": "South",
+      "MonthLabel": "Feb-2024"
+    },
+    {
+      "OrderID": 1006,
+      "OrderDate": "2024-02-15",
+      "CustomerID": "C005",
+      "ProductID": "P105",
+      "Quantity": 2,
+      "UnitPrice": 700,
+      "Discount": 0.15,
+      "Cost": 400,
+      "IsReturn": false,
+      "SalesAmount": 1190,
+      "Profit": 600,
+      "ProductName": "Laptop B",
+      "Category": "Electronics",
+      "SubCategory": "Laptops",
+      "CustomerName": "Ali Khan",
+      "Region": "East",
+      "MonthLabel": "Feb-2024"
+    },
+    {
+      "OrderID": 1008,
+      "OrderDate": "2024-03-01",
+      "CustomerID": "C006",
+      "ProductID": "P106",
+      "Quantity": -1,
+      "UnitPrice": 400,
+      "Discount": 0.1,
+      "Cost": 250,
+      "IsReturn": true,
+      "SalesAmount": -360,
+      "Profit": -150,
+      "ProductName": "Phone Y",
+      "Category": "Others",
+      "SubCategory": "Mobiles",
+      "CustomerName": "Sara Lee",
+      "Region": "West",
+      "MonthLabel": "Mar-2024"
+    }
+  ],
+  "targets": [
+    {
+      "Month": "Jan-2024",
+      "Category": "Electronics",
+      "TargetRevenue": 50000
+    },
+    {
+      "Month": "Jan-2024",
+      "Category": "Furniture",
+      "TargetRevenue": 20000
+    },
+    {
+      "Month": "Feb-2024",
+      "Category": "Electronics",
+      "TargetRevenue": 60000
+    },
+    {
+      "Month": "Feb-2024",
+      "Category": "Furniture",
+      "TargetRevenue": 25000
+    }
+  ],
+  "inventory": [
+    {
+      "ProductID": "P101",
+      "StockDate": "2024-01-01 00:00:00",
+      "StockQty": 50
+    },
+    {
+      "ProductID": "P102",
+      "StockDate": "2024-01-01 00:00:00",
+      "StockQty": 30
+    },
+    {
+      "ProductID": "P103",
+      "StockDate": "2024-01-01 00:00:00",
+      "StockQty": 100
+    },
+    {
+      "ProductID": "P104",
+      "StockDate": "2024-01-01 00:00:00",
+      "StockQty": 80
+    },
+    {
+      "ProductID": "P105",
+      "StockDate": "2024-01-01 00:00:00",
+      "StockQty": 60
+    },
+    {
+      "ProductID": "P106",
+      "StockDate": "2024-01-01 00:00:00",
+      "StockQty": 20
+    }
+  ],
+  "products": [
+    {
+      "ProductID": "P101",
+      "ProductName": "Laptop A",
+      "Category": "Electronics",
+      "SubCategory": "Laptops"
+    },
+    {
+      "ProductID": "P102",
+      "ProductName": "Phone X",
+      "Category": "Electronics",
+      "SubCategory": "Mobiles"
+    },
+    {
+      "ProductID": "P103",
+      "ProductName": "Chair Pro",
+      "Category": "Furniture",
+      "SubCategory": "Chairs"
+    },
+    {
+      "ProductID": "P104",
+      "ProductName": "Desk Basic",
+      "Category": "Furniture",
+      "SubCategory": "Tables"
+    },
+    {
+      "ProductID": "P105",
+      "ProductName": "Laptop B",
+      "Category": "Electronics",
+      "SubCategory": "Laptops"
+    },
+    {
+      "ProductID": "P106",
+      "ProductName": "Phone Y",
+      "Category": "Others",
+      "SubCategory": "Mobiles"
+    }
+  ]
+};
+populateFilters();
+render();
+
+function populateFilters(){
+  const regions=[...new Set(DATA.sales.map(s=>s.Region))].sort();
+  const cats=[...new Set(DATA.sales.map(s=>s.Category))].sort();
+  const fr=document.getElementById('fRegion'), fc=document.getElementById('fCategory');
+  regions.forEach(r=>fr.insertAdjacentHTML('beforeend',`<option value="${r}">${r}</option>`));
+  cats.forEach(c=>fc.insertAdjacentHTML('beforeend',`<option value="${c}">${c}</option>`));
+  fr.onchange=render; fc.onchange=render;
+}
+
+function fmt(n){return '₹'+Number(n).toLocaleString('en-IN',{maximumFractionDigits:0});}
+
+function filteredSales(){
+  const r=document.getElementById('fRegion').value, c=document.getElementById('fCategory').value;
+  return DATA.sales.filter(s=> (!r||s.Region===r) && (!c||s.Category===c));
+}
+
+function render(){
+  const sales = filteredSales();
+  const revenue = sales.reduce((a,s)=>a+s.SalesAmount,0);
+  const profit = sales.reduce((a,s)=>a+s.Profit,0);
+  const orders = new Set(sales.map(s=>s.OrderID)).size;
+
+  document.getElementById('kRevenue').textContent = fmt(revenue);
+  document.getElementById('kProfit').textContent = fmt(profit);
+  document.getElementById('kMargin').textContent = revenue? (100*profit/revenue).toFixed(1)+'%' : '0%';
+  document.getElementById('kOrders').textContent = orders;
+  document.getElementById('kAOV').textContent = orders? fmt(revenue/orders) : fmt(0);
+
+  // Trend by month
+  const byMonth={};
+  sales.forEach(s=>{ byMonth[s.MonthLabel]=(byMonth[s.MonthLabel]||0)+s.SalesAmount; });
+  const months=Object.keys(byMonth).sort((a,b)=>new Date('1 '+a)-new Date('1 '+b));
+  lineChart(document.getElementById('chartTrend'), months, months.map(m=>byMonth[m]), '#1C8C6E');
+
+  // Category performance
+  const byCat={};
+  sales.forEach(s=>{ byCat[s.Category]=(byCat[s.Category]||0)+s.SalesAmount; });
+  barChart(document.getElementById('chartCategory'), Object.keys(byCat), [{name:'Revenue',data:Object.values(byCat),color:'#2E6FA8'}]);
+
+  // Revenue vs Target
+  const targetByCat={};
+  DATA.targets.forEach(t=>{ targetByCat[t.Category]=(targetByCat[t.Category]||0)+t.TargetRevenue; });
+  const catsAll=[...new Set([...Object.keys(byCat),...Object.keys(targetByCat)])];
+  barChart(document.getElementById('chartTarget'), catsAll, [
+    {name:'Actual Revenue', data:catsAll.map(c=>byCat[c]||0), color:'#1C8C6E'},
+    {name:'Target Revenue', data:catsAll.map(c=>targetByCat[c]||0), color:'#D98C2B'}
+  ]);
+
+  // Category -> Product matrix
+  const matrix={};
+  sales.forEach(s=>{
+    const key=s.Category+'|'+s.ProductName;
+    if(!matrix[key]) matrix[key]={cat:s.Category,prod:s.ProductName,qty:0,rev:0,profit:0};
+    matrix[key].qty+=s.Quantity; matrix[key].rev+=s.SalesAmount; matrix[key].profit+=s.Profit;
+  });
+  const mBody=document.querySelector('#tblMatrix tbody'); mBody.innerHTML='';
+  Object.values(matrix).sort((a,b)=>b.rev-a.rev).forEach(m=>{
+    mBody.insertAdjacentHTML('beforeend',`<tr><td>${m.cat}</td><td>${m.prod}</td><td>${m.qty}</td><td>${fmt(m.rev)}</td><td>${fmt(m.profit)}</td></tr>`);
+  });
+
+  // Top products
+  const byProd={};
+  sales.forEach(s=>{ byProd[s.ProductName]=(byProd[s.ProductName]||0)+s.SalesAmount; });
+  const topProd=Object.entries(byProd).sort((a,b)=>b[1]-a[1]);
+  hBarChart(document.getElementById('chartTopProducts'), topProd.map(p=>p[0]), topProd.map(p=>p[1]), '#16324F');
+
+  // Revenue by region
+  const byRegion={};
+  sales.forEach(s=>{ byRegion[s.Region]=(byRegion[s.Region]||0)+s.SalesAmount; });
+  donutChart(document.getElementById('chartRegion'), Object.keys(byRegion), Object.values(byRegion), PALETTE);
+
+  // Customers table
+  const byCust={};
+  sales.forEach(s=>{
+    if(!byCust[s.CustomerName]) byCust[s.CustomerName]={region:s.Region,orders:new Set(),rev:0};
+    byCust[s.CustomerName].orders.add(s.OrderID);
+    byCust[s.CustomerName].rev+=s.SalesAmount;
+  });
+  const cBody=document.querySelector('#tblCustomers tbody'); cBody.innerHTML='';
+  Object.entries(byCust).sort((a,b)=>b[1].rev-a[1].rev).forEach(([name,c])=>{
+    cBody.insertAdjacentHTML('beforeend',`<tr><td>${name}</td><td>${c.region}</td><td>${c.orders.size}</td><td>${fmt(c.rev)}</td></tr>`);
+  });
+
+  // Inventory: stock vs sold (uses full product set, not region/category filtered)
+  const soldByProduct={};
+  DATA.sales.forEach(s=>{ soldByProduct[s.ProductID]=(soldByProduct[s.ProductID]||0)+Math.max(s.Quantity,0); });
+  const invLabels=DATA.inventory.map(i=>{
+    const p=DATA.products.find(p=>p.ProductID===i.ProductID);
+    return p? p.ProductName : i.ProductID;
+  });
+  const stockVals=DATA.inventory.map(i=>i.StockQty);
+  const soldVals=DATA.inventory.map(i=>soldByProduct[i.ProductID]||0);
+  barChart(document.getElementById('chartStock'), invLabels, [
+    {name:'Stock Qty', data:stockVals, color:'#2E6FA8'},
+    {name:'Sold Qty', data:soldVals, color:'#C6553F'}
+  ]);
+
+  const sBody=document.querySelector('#tblStock tbody'); sBody.innerHTML='';
+  DATA.inventory.forEach(i=>{
+    const p=DATA.products.find(p=>p.ProductID===i.ProductID);
+    const sold=soldByProduct[i.ProductID]||0;
+    const remaining=i.StockQty-sold;
+    const low=remaining < i.StockQty*0.3;
+    sBody.insertAdjacentHTML('beforeend',`<tr><td>${p?p.ProductName:i.ProductID}</td><td>${i.StockQty}</td><td>${sold}</td><td>${remaining}</td><td><span class="badge ${low?'low':'ok'}">${low?'Low Stock':'Healthy'}</span></td></tr>`);
+  });
+}
+
+document.querySelectorAll('nav.tabs button').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('nav.tabs button').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('page-'+btn.dataset.page).classList.add('active');
+  });
+});
+</script>
+</body>
+</html>

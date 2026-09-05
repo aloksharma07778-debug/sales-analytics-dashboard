@@ -1,0 +1,64 @@
+SALES ANALYTICS PROJECT — DAX MEASURE LIBRARY
+Paste these into Power BI (Modeling → New Measure) after loading Cleaned_Sales_Data.xlsx
+and building the star schema described in Project_Documentation.docx.
+
+------------------------------------------------------------
+DATE TABLE
+------------------------------------------------------------
+DateTable =
+ADDCOLUMNS(
+    CALENDAR(DATE(2024,1,1), DATE(2024,12,31)),
+    "Year", YEAR([Date]),
+    "Month", FORMAT([Date], "MMM"),
+    "MonthNumber", MONTH([Date])
+)
+
+------------------------------------------------------------
+CORE MEASURES
+------------------------------------------------------------
+Total Revenue = SUMX(Sales, Sales[Quantity] * Sales[UnitPrice] * (1 - Sales[Discount]))
+
+Total Profit = SUM(Sales[Profit])
+
+Profit Margin % = DIVIDE([Total Profit], [Total Revenue])
+
+Total Orders = DISTINCTCOUNT(Sales[OrderID])
+
+Avg Order Value = DIVIDE([Total Revenue], [Total Orders])
+
+------------------------------------------------------------
+TIME INTELLIGENCE
+------------------------------------------------------------
+YTD Sales = TOTALYTD([Total Revenue], DateTable[Date])
+
+YoY Growth % =
+DIVIDE(
+    [Total Revenue] - CALCULATE([Total Revenue], SAMEPERIODLASTYEAR(DateTable[Date])),
+    CALCULATE([Total Revenue], SAMEPERIODLASTYEAR(DateTable[Date]))
+)
+
+------------------------------------------------------------
+ADVANCED MEASURES
+------------------------------------------------------------
+Rank Product =
+RANKX(ALL(Products[ProductName]), [Total Revenue], , DESC)
+
+Contribution % =
+DIVIDE([Total Revenue], CALCULATE([Total Revenue], ALL(Products)))
+
+Selected Metric =
+SWITCH(
+    SELECTEDVALUE(Metric[Metric]),
+    "Revenue", [Total Revenue],
+    "Profit", [Total Profit],
+    "Orders", [Total Orders]
+)
+
+------------------------------------------------------------
+NOTES
+------------------------------------------------------------
+- Requires relationships: Sales->Customers (CustomerID), Sales->Products (ProductID),
+  Sales->DateTable (OrderDate). All single-direction, no many-to-many.
+- "Metric" is a Field Parameter table created via Modeling -> New Parameter,
+  with entries Revenue / Profit / Orders — used to power the dynamic
+  Selected Metric measure and switch visuals on the fly.
